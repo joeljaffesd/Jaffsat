@@ -100,6 +100,10 @@ void JaffsatAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     spec.sampleRate = sampleRate;
     spec.maximumBlockSize = samplesPerBlock;
     spec.numChannels = getTotalNumInputChannels();
+    
+    sinOsc.prepare (spec);
+    sinOsc.setFrequency(4.0f);
+    sinOscGain.setGainLinear ( 1.0f );
 
 }
 
@@ -146,15 +150,25 @@ void JaffsatAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         buffer.clear (i, 0, buffer.getNumSamples());
 
     juce::dsp::AudioBlock<float> bufferBlock (buffer);
+    sinOsc.process(juce::dsp::ProcessContextReplacing<float> (bufferBlock));
     
     //Operation Mode
     float operationMode = treeState.getRawParameterValue ("Operation Mode")->load();
     
-    //Volume Control
-    float volFactor = dbtoa(treeState.getRawParameterValue ("Volume")->load());
-    
     //Gain Control
     float gainFactor = dbtoa(treeState.getRawParameterValue ("Gain")->load());
+    
+    //Saturation Control
+    float satCoef = treeState.getRawParameterValue ("Saturation")->load();
+    
+    //Blend Control
+            float blendFactor = treeState.getRawParameterValue ("Blend")->load();
+            float dryGain = scale (100 - blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
+            float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
+    
+    //Volume Control
+    float volFactor = dbtoa(treeState.getRawParameterValue ("Volume")->load());
+
     
     if ( operationMode == 0) {
         //Bypass
@@ -176,8 +190,11 @@ void JaffsatAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
             float* dataLeft = bufferBlock.getChannelPointer(0);
             float* dataRight = bufferBlock.getChannelPointer(1);
                 
-            dataLeft[sample] = distData((dataLeft[sample] * gainFactor)) * volFactor;
-            dataRight[sample] = dataLeft[sample];
+            float inputSample = dataLeft[sample] * gainFactor;
+            float distSample = distData(inputSample, satCoef);
+            float outputSample = (distSample * wetGain) + (inputSample * dryGain);
+            dataLeft[sample] = outputSample * volFactor;
+            dataRight[sample] = outputSample * volFactor;
             
         }
         
@@ -199,9 +216,9 @@ float JaffsatAudioProcessor::distData(float samples)
     return samples;
 }
 */
-float JaffsatAudioProcessor::distData(float samples)
+float JaffsatAudioProcessor::distData(float samples, float satCoef)
 {
-    return piDivisor * atanf(samples);
+    return piDivisor * (atanf(samples * satCoef) / atanf(satCoef));
 }
 
 //==============================================================================
@@ -234,23 +251,28 @@ juce::AudioProcessorValueTreeState::ParameterLayout
 {
         juce::AudioProcessorValueTreeState::ParameterLayout layout;
         
-        //adds parameter for controlling ratio of outpitch to inpitch
+        //adds parameter for controlling input gain
         layout.add(std::make_unique<juce::AudioParameterFloat>("Gain",
         "Gain",
-        juce::NormalisableRange<float>(-60.f, 60.f, 1.f, 1.f), -60.f));
+        juce::NormalisableRange<float>(-60.f, 60.f, 1.f, 1.f), 0.f));
                                        // (low, hi, step, skew), default value)
         
-        //adds parameter for blending pitshifted signal with input signal
+        //adds parameter for adjusting saturation level
+        layout.add(std::make_unique<juce::AudioParameterFloat>("Saturation",
+        "Saturation",
+        juce::NormalisableRange<float>(1.f, 5.f, 0.01f, 1.f), 1.0f));
+        
+        //adds parameter for blending clipped signal with input signal
         layout.add(std::make_unique<juce::AudioParameterFloat>("Blend",
         "Blend",
         juce::NormalisableRange<float>(0.f, 100.f, 1.f, 1.f), 0.0f));
         
-        //adds parameter for blending pitshifted signal with input signal
+        //adds parameter for output volume
         layout.add(std::make_unique<juce::AudioParameterFloat>("Volume",
         "Volume",
         juce::NormalisableRange<float>(-60.0f, 0.0f, 1.f, 1.f), -60.0f));
         
-        //adds binary option for Stereo and Mono modes (not implemented)
+        //adds binary option for Mono->Stereo or Bypass
         juce::StringArray stringArray;
         for( int i = 0; i < 2; ++i )
         {

@@ -66,8 +66,18 @@ private:
             return std::pow(10.0, valueIndB / 20.0);
         }
     
+    float scale(float x, float inMin, float inMax, float outMin, float outMax) {
+            // Perform linear mapping based on specified input and output ranges
+            float scaledValue = ((x - inMin) / (inMax - inMin)) * (outMax - outMin) + outMin;
+            
+            return scaledValue;
+        }
+    
     juce::dsp::Oversampling<float> overSamp;
-    float distData(float samples);
+    juce::dsp::Gain<float> sinOscGain;
+    juce::dsp::Oscillator<float> sinOsc { [](float x) {return std::sin (x); }};
+    
+    float distData(float samples, float sastCoef);
     static constexpr float piDivisor = 2.0f / juce::MathConstants<float>::pi;
     
     
