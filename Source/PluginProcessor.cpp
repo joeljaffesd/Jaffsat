@@ -160,6 +160,8 @@ void JaffsatAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     
     //Saturation Control
     float satCoef = treeState.getRawParameterValue ("Saturation")->load();
+    //Threshold Control
+    float thresh = treeState.getRawParameterValue ("Threshold")->load();
     
     //Blend Control
             float blendFactor = treeState.getRawParameterValue ("Blend")->load();
@@ -191,7 +193,7 @@ void JaffsatAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
             float* dataRight = bufferBlock.getChannelPointer(1);
                 
             float inputSample = dataLeft[sample] * gainFactor;
-            float distSample = distData(inputSample, satCoef);
+            float distSample = distData(inputSample, satCoef, thresh);
             float outputSample = (distSample * wetGain) + (inputSample * dryGain);
             dataLeft[sample] = outputSample * volFactor;
             dataRight[sample] = outputSample * volFactor;
@@ -216,9 +218,17 @@ float JaffsatAudioProcessor::distData(float samples)
     return samples;
 }
 */
-float JaffsatAudioProcessor::distData(float samples, float satCoef)
+float JaffsatAudioProcessor::distData(float sample, float satCoef, float thresh)
 {
-    return piDivisor * (atanf(samples * satCoef) / atanf(satCoef));
+    if (sample <= 0 ) {
+        return piDivisor * (atanf(sample * satCoef) / atanf(satCoef));
+    }
+    else if (sample > thresh) {
+        return thresh;
+        }
+    else {
+        return sample;
+    }
 }
 
 //==============================================================================
@@ -261,6 +271,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout
         layout.add(std::make_unique<juce::AudioParameterFloat>("Saturation",
         "Saturation",
         juce::NormalisableRange<float>(1.f, 5.f, 0.01f, 1.f), 1.0f));
+        
+        //adds parameter for adjusting threshold
+        layout.add(std::make_unique<juce::AudioParameterFloat>("Threshold",
+        "Threshold",
+        juce::NormalisableRange<float>(0.f, 1.f, 0.001f, 1.f), 1.0f));
         
         //adds parameter for blending clipped signal with input signal
         layout.add(std::make_unique<juce::AudioParameterFloat>("Blend",
