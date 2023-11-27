@@ -104,7 +104,21 @@ void JaffsatAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     sinOsc.prepare (spec);
     sinOsc.setFrequency(4.0f);
     sinOscGain.setGainLinear ( 1.0f );
-
+    
+    convolver.reset();
+    convolver.prepare (spec);
+    
+    /*
+    if (getSampleRate() == 44100) {
+        convolver.loadImpulseResponse(<#const File &fileImpulseResponse#>, juce::dsp::Convolution::Stereo::yes, juce::dsp::Convolution::Trim::yes, 0);
+    }
+    else if (getSampleRate() == 48000) {
+        convolver.loadImpulseResponse(<#const File &fileImpulseResponse#>, juce::dsp::Convolution::Stereo::yes, juce::dsp::Convolution::Trim::yes, 0);
+    }
+    else {
+        jassert(false);
+    }
+    */
 }
 
 void JaffsatAudioProcessor::releaseResources()
@@ -164,9 +178,9 @@ void JaffsatAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     float thresh = treeState.getRawParameterValue ("Threshold")->load();
     
     //Blend Control
-            float blendFactor = treeState.getRawParameterValue ("Blend")->load();
-            float dryGain = scale (100 - blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
-            float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
+    float blendFactor = treeState.getRawParameterValue ("Blend")->load();
+    float dryGain = scale (100 - blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
+    float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
     
     //Volume Control
     float volFactor = dbtoa(treeState.getRawParameterValue ("Volume")->load());
@@ -201,6 +215,12 @@ void JaffsatAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         }
         
         overSamp.processSamplesDown(bufferBlock);
+        /*
+        if (convolver.getCurrentIRSize() > 0)
+        {
+            convolver.process(juce::dsp::ProcessContextReplacing<float>(bufferBlock));
+        }
+        */
     }
    
 }
@@ -286,6 +306,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout
         layout.add(std::make_unique<juce::AudioParameterFloat>("Volume",
         "Volume",
         juce::NormalisableRange<float>(-60.0f, 0.0f, 1.f, 1.f), -60.0f));
+        
+        /*
+        //adds irLoader
+        layout.add(std::make_unique<juce::FileChooser>("Choose File", JaffsatAudioProcessor.root, "*"));
+        
+        const auto fileChooserFlags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::canSelectDirectories;
+        
+        fileChooser->launchAsync(fileChooserFlags, [this](const juce::FileChooser& chooser)
+                                 {
+            juce::File result
+        });
+        */
         
         //adds binary option for Mono->Stereo or Bypass
         juce::StringArray stringArray;

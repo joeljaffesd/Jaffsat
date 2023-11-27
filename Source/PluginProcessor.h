@@ -74,6 +74,7 @@ private:
         }
     
     juce::dsp::Oversampling<float> overSamp;
+    juce::dsp::Convolution convolver;
     juce::dsp::Gain<float> sinOscGain;
     juce::dsp::Oscillator<float> sinOsc { [](float x) {return std::sin (x); }};
     
