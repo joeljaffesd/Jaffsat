@@ -4,6 +4,10 @@
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" companyName="Jaffco"
               companyWebsite="www.joeljaffesd.com" companyEmail="joel@jaffesd.com">
   <MAINGROUP id="R271zt" name="Jaffsat">
+    <GROUP id="{7870B679-99DF-8CD3-06EC-87D4070F441C}" name="Resources">
+      <FILE id="eoHkdU" name="44.1k_IR.wav" compile="0" resource="1" file="Resources/44.1k_IR.wav"/>
+      <FILE id="jvPhTP" name="48k_IR.wav" compile="0" resource="1" file="Resources/48k_IR.wav"/>
+    </GROUP>
     <GROUP id="{B76CB0B8-548D-92BC-509F-AB9A3B529307}" name="Source">
       <FILE id="g4ImlK" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>

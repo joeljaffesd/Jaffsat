@@ -108,12 +108,29 @@ void JaffsatAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     convolver.reset();
     convolver.prepare (spec);
     
+    auto dir = juce::File::getCurrentWorkingDirectory();
+    
+    //int numTries = 0;
+    
+    //while (! dir.getChildFile ("Resources").exists() && numTries++ < 15) dir = dir.getParentDirectory();
+    
     /*
     if (getSampleRate() == 44100) {
-        convolver.loadImpulseResponse(<#const File &fileImpulseResponse#>, juce::dsp::Convolution::Stereo::yes, juce::dsp::Convolution::Trim::yes, 0);
+        convolver.loadImpulseResponse(dir.getChildFile("Resources").getChildFile("44.1k_IR"), juce::dsp::Convolution::Stereo::no, juce::dsp::Convolution::Trim::yes, 0);
     }
     else if (getSampleRate() == 48000) {
-        convolver.loadImpulseResponse(<#const File &fileImpulseResponse#>, juce::dsp::Convolution::Stereo::yes, juce::dsp::Convolution::Trim::yes, 0);
+        convolver.loadImpulseResponse(dir.getChildFile("Resources").getChildFile("48k_IR"), juce::dsp::Convolution::Stereo::no, juce::dsp::Convolution::Trim::yes, 0);
+    }
+    else {
+        jassert(false);
+    }
+    */
+    /*
+    if (getSampleRate() == 44100) {
+        convolver.loadImpulseResponse(dir.getChildFile("Resources").getChildFile("44.1k_IR"), juce::dsp::Convolution::Stereo::no, juce::dsp::Convolution::Trim::yes, 0);
+    }
+    else if (getSampleRate() == 48000) {
+        convolver.loadImpulseResponse(dir.getChildFile("Resources").getChildFile("48k_IR"), juce::dsp::Convolution::Stereo::no, juce::dsp::Convolution::Trim::yes, 0);
     }
     else {
         jassert(false);
@@ -220,24 +237,12 @@ void JaffsatAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         {
             convolver.process(juce::dsp::ProcessContextReplacing<float>(bufferBlock));
         }
-        */
+        
+      */
     }
    
 }
 
-/*
-float JaffsatAudioProcessor::distData(float samples)
-{
-    if (samples > 0) {
-        samples = piDivisor * atanf(samples);
-    }
-    else {
-        samples = samples;
-    }
-    
-    return samples;
-}
-*/
 float JaffsatAudioProcessor::distData(float sample, float satCoef, float thresh)
 {
     if (sample <= 0 ) {
