@@ -102,7 +102,7 @@ void JaffsatAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     spec.numChannels = getTotalNumInputChannels();
     
     sinOsc.prepare (spec);
-    sinOsc.setFrequency(4.0f);
+    sinOsc.setFrequency(220.0f);
     sinOscGain.setGainLinear ( 1.0f );
     
     convolver.reset();
@@ -191,6 +191,7 @@ void JaffsatAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     
     //Saturation Control
     float satCoef = treeState.getRawParameterValue ("Saturation")->load();
+    
     //Threshold Control
     float thresh = treeState.getRawParameterValue ("Threshold")->load();
     
@@ -201,6 +202,10 @@ void JaffsatAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     
     //Volume Control
     float volFactor = dbtoa(treeState.getRawParameterValue ("Volume")->load());
+    
+    //Noise Gate
+    float noiseToggle = treeState.getRawParameterValue("Noise Gate Toggle")->load();
+    float noiseThresh = dbtoa(treeState.getRawParameterValue("Noise Threshold")->load());
 
     
     if ( operationMode == 0) {
@@ -224,13 +229,13 @@ void JaffsatAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
             float* dataRight = bufferBlock.getChannelPointer(1);
                 
             float inputSample = dataLeft[sample] * gainFactor;
-            float distSample = distData(inputSample, satCoef, thresh);
+            float gatedSample = noiseGate(inputSample, noiseToggle, noiseThresh);
+            float distSample = distData(gatedSample, satCoef, thresh);
             float outputSample = (distSample * wetGain) + (inputSample * dryGain);
             dataLeft[sample] = outputSample * volFactor;
             dataRight[sample] = outputSample * volFactor;
             
         }
-        
         overSamp.processSamplesDown(bufferBlock);
         /*
         if (convolver.getCurrentIRSize() > 0)
@@ -248,13 +253,24 @@ float JaffsatAudioProcessor::distData(float sample, float satCoef, float thresh)
     if (sample <= 0 ) {
         return piDivisor * (atanf(sample * satCoef) / atanf(satCoef));
     }
-    else if (sample > thresh) {
-        return thresh;
-        }
+    else if (sample > piDivisor) {
+        return piDivisor;
+    }
     else {
         return sample;
     }
 }
+
+float JaffsatAudioProcessor::noiseGate(float sample, bool toggle, float noiseThresh)
+{
+    if (toggle == 1 && abs(sample) < noiseThresh) {
+        return 0.0f;
+    }
+    else {
+        return sample;
+    }
+}
+
 
 //==============================================================================
 bool JaffsatAudioProcessor::hasEditor() const
@@ -325,7 +341,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout
         */
         
         //adds binary option for Mono->Stereo or Bypass
-        juce::StringArray stringArray;
+        juce::StringArray operationModes;
         for( int i = 0; i < 2; ++i )
         {
             juce::String str;
@@ -335,10 +351,30 @@ juce::AudioProcessorValueTreeState::ParameterLayout
             else {
                 str << "Mono-to-Stereo Operation";
             }
-            stringArray.add(str);
+            operationModes.add(str);
         }
         
-        layout.add(std::make_unique<juce::AudioParameterChoice>("Operation Mode", "Operation Mode", stringArray, 0));
+        layout.add(std::make_unique<juce::AudioParameterChoice>("Operation Mode", "Operation Mode", operationModes, 0));
+        
+        
+        //Noise Gate UI
+        juce::StringArray gateToggle;
+        for( int i = 0; i < 2; ++i )
+        {
+            juce::String str;
+            if (i == 0) {
+                str << "Off";
+            }
+            else {
+                str << "On";
+            }
+            gateToggle.add(str);
+        }
+        
+        layout.add(std::make_unique<juce::AudioParameterChoice>("Noise Gate Toggle", "Noise Gate Toggle", gateToggle, 0));
+        layout.add(std::make_unique<juce::AudioParameterFloat>("Noise Threshold",
+        "Noise Threshold",
+        juce::NormalisableRange<float>(-100.f, 0.f, 1.f, 1.f), -100.f));
         
         return layout;
     }

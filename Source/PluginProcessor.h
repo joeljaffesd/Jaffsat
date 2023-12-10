@@ -79,6 +79,7 @@ private:
     juce::dsp::Oscillator<float> sinOsc { [](float x) {return std::sin (x); }};
     
     float distData(float samples, float satCoef, float thresh);
+    float noiseGate(float samples, bool toggle, float noiseThresh);
     static constexpr float piDivisor = 2.0f / juce::MathConstants<float>::pi;
     
     
