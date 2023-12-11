@@ -105,6 +105,10 @@ void JaffsatAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     sinOsc.setFrequency(220.0f);
     sinOscGain.setGainLinear ( 1.0f );
     
+    convolver.reset();
+    convolver.loadImpulseResponse(juce::File::getSpecialLocation(juce::File::userDesktopDirectory).getChildFile("48k_IR.wav"), juce::dsp::Convolution::Stereo::no, juce::dsp::Convolution::Trim::yes, 0);
+    convolver.prepare(spec);
+    
 }
 
 void JaffsatAudioProcessor::releaseResources()
@@ -150,7 +154,7 @@ void JaffsatAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         buffer.clear (i, 0, buffer.getNumSamples());
 
     juce::dsp::AudioBlock<float> bufferBlock (buffer);
-    sinOsc.process(juce::dsp::ProcessContextReplacing<float> (bufferBlock));
+    //sinOsc.process(juce::dsp::ProcessContextReplacing<float> (bufferBlock));
     
     //Operation Mode
     float operationMode = treeState.getRawParameterValue ("Operation Mode")->load();
@@ -175,6 +179,9 @@ void JaffsatAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     //Noise Gate
     float noiseToggle = treeState.getRawParameterValue("Noise Gate Toggle")->load();
     float noiseThresh = dbtoa(treeState.getRawParameterValue("Noise Threshold")->load());
+    
+    //IR Toggle
+    float irToggle = treeState.getRawParameterValue("IR Toggle")->load();
 
     
     if ( operationMode == 0) {
@@ -195,19 +202,22 @@ void JaffsatAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         for (int sample = 0; sample < bufferBlock.getNumSamples(); ++sample)
         {
             float* dataLeft = bufferBlock.getChannelPointer(0);
-            float* dataRight = bufferBlock.getChannelPointer(1);
+            //float* dataRight = bufferBlock.getChannelPointer(1);
                 
             float inputSample = dataLeft[sample] * gainFactor;
             float gatedSample = noiseGate(inputSample, noiseToggle, noiseThresh);
             float distSample = distData(gatedSample, satCoef, thresh);
             float outputSample = (distSample * wetGain) + (inputSample * dryGain);
             dataLeft[sample] = outputSample * volFactor;
-            dataRight[sample] = outputSample * volFactor;
+            //dataRight[sample] = outputSample * volFactor;
             
         }
         overSamp.processSamplesDown(bufferBlock);
     }
-   
+    
+    if (irToggle == 1) {
+        convolver.process(juce::dsp::ProcessContextReplacing<float> (bufferBlock));
+    }
 }
 
 float JaffsatAudioProcessor::distData(float sample, float satCoef, float thresh)
@@ -290,17 +300,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout
         "Volume",
         juce::NormalisableRange<float>(-60.0f, 0.0f, 1.f, 1.f), -60.0f));
         
-        /*
-        //adds irLoader
-        layout.add(std::make_unique<juce::FileChooser>("Choose File", JaffsatAudioProcessor.root, "*"));
-        
-        const auto fileChooserFlags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::canSelectDirectories;
-        
-        fileChooser->launchAsync(fileChooserFlags, [this](const juce::FileChooser& chooser)
-                                 {
-            juce::File result
-        });
-        */
         
         //adds binary option for Mono->Stereo or Bypass
         juce::StringArray operationModes;
@@ -308,10 +307,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout
         {
             juce::String str;
             if (i == 0) {
-                str << "Mono-to-Stereo Bypass";
+                str << "Mono Bypass";
             }
             else {
-                str << "Mono-to-Stereo Operation";
+                str << "Mono Operation";
             }
             operationModes.add(str);
         }
@@ -337,6 +336,22 @@ juce::AudioProcessorValueTreeState::ParameterLayout
         layout.add(std::make_unique<juce::AudioParameterFloat>("Noise Threshold",
         "Noise Threshold",
         juce::NormalisableRange<float>(-100.f, 0.f, 1.f, 1.f), -100.f));
+        
+        //IR Toggle
+        juce::StringArray irToggle;
+        for( int i = 0; i < 2; ++i )
+        {
+            juce::String str;
+            if (i == 0) {
+                str << "Off";
+            }
+            else {
+                str << "On";
+            }
+            irToggle.add(str);
+        }
+        
+        layout.add(std::make_unique<juce::AudioParameterChoice>("IR Toggle", "IR Toggle", irToggle, 0));
         
         return layout;
     }
